@@ -1,1 +1,1 @@
-print ("Hello World !")
+print ("Hello World ! The project is about to begin ! ")
