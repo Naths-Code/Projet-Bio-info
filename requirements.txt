@@ -1,6 +1,8 @@
-import biopython
-import numpy
-import pandas
-import matplotlib
-import ete3
+
+#dependences clefs pour le project
+biopython
+numpy
+pandas
+matplotlib
+ete3
 
