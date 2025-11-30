@@ -9,14 +9,9 @@ from Bio.SeqRecord import SeqRecord
 Entrez.email = "nathandissezpro@gmail.com"
 
 def charger_donnees_utilisateur():
-    """
-    Fonction interactive pour récupérer des séquences.
-    Retourne une LISTE d'objets SeqRecord prêts à être traités.
-    """
     print("\n--- MENU D'IMPORTATION ---")
     print("1. Télécharger via Numéro d'Accession (NCBI)")
     print("2. Charger depuis un fichier FASTA local")
-    print("3. Coller une séquence brute")
     
     choix = input("Votre choix (1/2/3) : ").strip()
 
@@ -37,11 +32,10 @@ def charger_donnees_utilisateur():
 
     # --- CAS 2 : FICHIER LOCAL ---
     elif choix == "2":
-        chemin = input("Entrez le chemin du fichier FASTA (ex: data/mon_fichier.fasta) : ").strip()
+        chemin = input("Entrez le chemin du fichier FASTA : ").strip()
         if os.path.exists(chemin):
             try:
                 sequences_recuperees = list(SeqIO.parse(chemin, "fasta"))
-                print(f"{len(sequences_recuperees)} séquences chargées.")
             except Exception as e:
                 print(f"Erreur de lecture du fichier : {e}")
         else:
@@ -70,10 +64,7 @@ if __name__ == "__main__":
     seqs = charger_donnees_utilisateur()
     
     if seqs:
-        print("\nRésumé des données chargées :")
+        print("\n Résumé des données chargées :")
         for s in seqs:
             print(f"- ID: {s.id} | Longueur: {len(s.seq)}")
             
-            # ICI, on peut proposer à l'utilisateur de couper
-            # C'est là qu'on réutilise votre logique validée :
-            # troncon = s.seq[debut-1 : fin]

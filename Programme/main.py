@@ -1,4 +1,5 @@
 import sys
+import os
 import warnings
 from Bio import Entrez, SeqIO
 from Bio.Seq import Seq
@@ -81,15 +82,27 @@ def pipeline_principale():
         except Exception as e:
             print(f"[ERREUR] Probleme sur {acc_id} : {e}")
 
-    # 4. SAUVEGARDE DES FICHIERS
+    # 4. SAUVEGARDE DES FICHIERS DANS LE SOUS-DOSSIER
     print("\n--- GENERATION DES FICHIERS ---")
+    
+    # Definition du dossier de stockage (Un etage plus haut, puis 'Donnees')
+    dossier_cible = "../Donnees"
+    
+    # On cree le dossier s'il n'existe pas deja (exist_ok=True evite de planter si deja la)
+    if not os.path.exists(dossier_cible):
+        os.makedirs(dossier_cible)
+        print(f"[INFO] Dossier '{dossier_cible}' cree.")
+
     if sequences_env:
-        SeqIO.write(sequences_env, "env_all.fasta", "fasta")
-        print(f"[SUCCES] Fichier genere : 'env_all.fasta' ({len(sequences_env)} sequences)")
+        # On joint le dossier et le nom de fichier
+        chemin_env = os.path.join(dossier_cible, "env_all.fasta")
+        SeqIO.write(sequences_env, chemin_env, "fasta")
+        print(f"[SUCCES] Fichier genere : '{chemin_env}' ({len(sequences_env)} sequences)")
     
     if sequences_tat:
-        SeqIO.write(sequences_tat, "tat_all.fasta", "fasta")
-        print(f"[SUCCES] Fichier genere : 'tat_all.fasta' ({len(sequences_tat)} sequences)")
-
+        chemin_tat = os.path.join(dossier_cible, "tat_all.fasta")
+        SeqIO.write(sequences_tat, chemin_tat, "fasta")
+        print(f"[SUCCES] Fichier genere : '{chemin_tat}' ({len(sequences_tat)} sequences)")
+        
 if __name__ == "__main__":
     pipeline_principale()
