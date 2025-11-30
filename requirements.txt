@@ -5,4 +5,8 @@ numpy
 pandas
 matplotlib
 ete3
-
+sys
+warnings
+from Bio import Entrez, SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord

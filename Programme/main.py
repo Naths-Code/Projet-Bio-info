@@ -1,106 +1,95 @@
 import sys
 import warnings
-# On masque les avertissements pour une sortie propre
-warnings.filterwarnings("ignore")
-
 from Bio import Entrez, SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-# Configuration de l'email (OBLIGATOIRE pour NCBI)
+# On masque les avertissements pour la soutenance
+warnings.filterwarnings("ignore")
+
+# Configuration Email (Obligatoire pour NCBI)
 Entrez.email = "nathandissezpro@gmail.com"
 
-def importer_sequences():
+def extraire_genes_interessants(record_genbank):
     """
-    Fonction principale pour récupérer les séquences.
-    Version corrigée : Feedback détaillé et sans émojis.
+    Fonction : Reçoit une fiche GenBank complète et extrait Env et Tat.
+    Retourne un dictionnaire avec les séquences découpées.
     """
-    toutes_les_sequences = []
+    genes_trouves = {"env_prot": None, "tat_prot": None}
     
-    print("\n--- INITIALISATION DE L'IMPORTATION ---")
+    # On parcourt toutes les caractéristiques/features
+    for feature in record_genbank.features:
+        if feature.type == "CDS": # CDS = Coding Sequence
+            
+            # On récupère le nom du gène
+            nom_gene = feature.qualifiers.get("gene", [""])[0].lower()
+            descript_produit = feature.qualifiers.get("product", [""])[0].lower()
+            
+            # --- ENV ---
+            if "env" in nom_gene or "envelope" in descript_produit:
+                # On prend la traduction en protéine déjà faite par NCBI
+                if "translation" in feature.qualifiers:
+                    genes_trouves["env_prot"] = feature.qualifiers["translation"][0]
+            
+            # --- TAT ---
+            elif "tat" in nom_gene:
+                if "translation" in feature.qualifiers:
+                    genes_trouves["tat_prot"] = feature.qualifiers["translation"][0]
+
+    return genes_trouves
+
+def pipeline_principale():
+    print("\n=== PIPELINE D'ACQUISITION ET EXTRACTION ===")
     
-    # 1. Combien d'entrées ?
-    try:
-        nb_imports = int(input("Combien de sources voulez-vous ajouter ? : "))
-    except ValueError:
-        print("[ERREUR] Il faut entrer un nombre entier.")
-        return []
+    # virus cibles de la consigne
+    cibles = ["M62320", "K03455", "U46016", "K03454", "AJ006022", "L20587", "M15390", "M33262", "X52154"]
+    
+    sequences_env = []
+    sequences_tat = []
+    
+    print(f"[INFO] Demarrage du telechargement pour {len(cibles)} souches virales...")
 
-    # 2. Boucle principale
-    for i in range(nb_imports):
-        print(f"\n--- SOURCE N° {i + 1} / {nb_imports} ---")
-        print("1. NCBI (Numéro d'Accession)")
-        print("2. Fichier FASTA local")
-        print("3. Saisie manuelle")
-        
-        choix = input("Votre choix (1/2/3) : ").strip()
-
-        # --- CAS 1 : NCBI ---
-        if choix == "1":
-            # Liste aide-mémoire dans le prompt
-            msg_aide = "Numéro d'accession (ex: M62320, K03455, U46016, K03454, AJ006022, L20587, M15390, M33262, X52154) : "
-            acc_id = input(msg_aide).strip()
+    for acc_id in cibles:
+        try:
+            # 1. TÉLÉCHARGEMENT (Format GenBank pour avoir les coordonnées)
+            handle = Entrez.efetch(db="nucleotide", id=acc_id, rettype="gb", retmode="text")
+            record = SeqIO.read(handle, "genbank")
+            handle.close()
             
-            print(f"[INFO] Connexion au NCBI pour : '{acc_id}'...")
-            try:
-                # Récupération
-                handle = Entrez.efetch(db="nucleotide", id=acc_id, rettype="fasta", retmode="text")
-                seqs = list(SeqIO.parse(handle, "fasta"))
-                handle.close()
-
-                # Vérification
-                if len(seqs) > 0:
-                    toutes_les_sequences.extend(seqs)
-                    print(f"[SUCCES] Séquence récupérée : {seqs[0].id} | Longueur : {len(seqs[0].seq)}")
-                else:
-                    print(f"[ATTENTION] Aucune séquence trouvée pour l'ID '{acc_id}'. Vérifiez l'orthographe.")
-
-            except Exception as e:
-                print(f"[ERREUR] Échec du téléchargement pour '{acc_id}'.")
-                print(f"Détail technique : {e}")
-
-        # --- CAS 2 : FICHIER LOCAL ---
-        elif choix == "2":
-            chemin = input("Chemin du fichier FASTA : ").strip()
-            try:
-                if list(SeqIO.parse(chemin, "fasta")): # Test rapide si lisible
-                    # On recharge proprement
-                    seqs = list(SeqIO.parse(chemin, "fasta")) 
-                    toutes_les_sequences.extend(seqs)
-                    print(f"[SUCCES] {len(seqs)} séquences chargées depuis le fichier.")
-                else:
-                    print("[ATTENTION] Le fichier est vide ou n'est pas au format FASTA.")
-            except Exception as e:
-                print(f"[ERREUR] Impossible de lire le fichier '{chemin}'.")
-                print(f"Détail technique : {e}")
-
-        # --- CAS 3 : MANUEL ---
-        elif choix == "3":
-            seq_str = input("Copiez la séquence ici : ").strip().upper()
-            nom = input("Nom de la séquence : ").strip()
+            # 2. EXTRACTION
+            resultats = extraire_genes_interessants(record)
             
-            if seq_str and nom:
-                record = SeqRecord(Seq(seq_str), id=nom, description="Import_manuel")
-                toutes_les_sequences.append(record)
-                print("[SUCCES] Séquence manuelle ajoutée.")
+            # 3. STOCKAGE
+            nom_virus = f"{acc_id}" # On garde l'ID comme identifiant
+            
+            # Si on trouve Env
+            if resultats["env_prot"]:
+                seq_obj = SeqRecord(Seq(resultats["env_prot"]), id=nom_virus, description="Env_Protein")
+                sequences_env.append(seq_obj)
             else:
-                print("[ERREUR] Le nom ou la séquence est vide.")
+                print(f"[ATTENTION] Pas de gene Env trouve pour {acc_id}")
 
-        else:
-            print("[ERREUR] Choix invalide. Cette étape est ignorée.")
+            # Si on trouve Tat
+            if resultats["tat_prot"]:
+                seq_obj = SeqRecord(Seq(resultats["tat_prot"]), id=nom_virus, description="Tat_Protein")
+                sequences_tat.append(seq_obj)
+            else:
+                print(f"[ATTENTION] Pas de gene Tat trouve pour {acc_id}")
 
-    print(f"\n--- BILAN : {len(toutes_les_sequences)} SÉQUENCES EN MÉMOIRE ---")
+            print(f"[SUCCES] Traite : {acc_id}")
+            
+        except Exception as e:
+            print(f"[ERREUR] Probleme sur {acc_id} : {e}")
+
+    # 4. SAUVEGARDE DES FICHIERS
+    print("\n--- GENERATION DES FICHIERS ---")
+    if sequences_env:
+        SeqIO.write(sequences_env, "env_all.fasta", "fasta")
+        print(f"[SUCCES] Fichier genere : 'env_all.fasta' ({len(sequences_env)} sequences)")
     
-    # Petit récapitulatif pour voir ce qui manque
-    if len(toutes_les_sequences) > 0:
-        print("Liste des séquences valides :")
-        for s in toutes_les_sequences:
-            print(f" - {s.id}")
-    else:
-        print("[ATTENTION] Aucune séquence n'a été chargée.")
-
-    return toutes_les_sequences
+    if sequences_tat:
+        SeqIO.write(sequences_tat, "tat_all.fasta", "fasta")
+        print(f"[SUCCES] Fichier genere : 'tat_all.fasta' ({len(sequences_tat)} sequences)")
 
 if __name__ == "__main__":
-    importer_sequences()
-    
+    pipeline_principale()
